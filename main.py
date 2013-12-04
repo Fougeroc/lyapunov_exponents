@@ -15,37 +15,68 @@ sigma_c = Permutation('(1,6)(2,5)(3,4)')
 
 permutations = {'a': sigma_a, 'b': sigma_b, 'c': sigma_c}
 
-def main(R,N,string):
-    with open(string + 'dec_results_%s'%(N), 'w') as f:
-        t0 = time()
-        f.write("%s\n%s iterations\n\n"%(R,N))
-        f.write(str(lyap_isotopic_decomposed(R,N)))
-        f.write("\n\ntime of process : %s\n"%(time()-t0))
-    f.closed
 
 def main(R, N, string):
-    M = R.h_one_intersection_matrix()
-    if M <> -M.transpose():
-        print string
-        print R._intervals
-        print R.labels()
-        print R.cycles
-    T = R.intersection_isotopic()
-    print 
-    print string
-    print R.signature_intersection
-    print R.signatures_isotopic
-#    for i in range(len(T)):
-#        print T[i]
-#        print R.signature(i)
-#        print ","
-    #print R._intervals
-    #print R.labels()
-    #v = R.canonical_VectPaths().copy_vector(R.h_one_to_generator[1])
-    #w = R.canonical_VectPaths().copy_vector(R.h_one_to_generator[0])
-    #print R.global_intersection(v, w)
-    #print R.global_intersection(w,v)
-    
+     #with open(str ing + 'dec_results_%s'%(N), 'w') as f:
+     #     t0 = time()
+     #     f.write("%s\n%s iterations\n\n"%(R,N))
+     #     s = str(lyap_isotopic_decomposed(R,N))
+     #     print s
+     #     f.write(s)
+     #     f.write("\n\ntime of process : %s\n"%(time()-t0))
+     # f.closed
+#     print R.intersection_forms_isotopic
+     # for i in range(R.n_characters()):
+     #      print R.isotopic_projection_matrix(i)
+      for i in range(R.n_characters()):
+            print R.signatures_isotopic(i)          
+      print [R.signatures_isotopic(i) for i in range(R.n_characters())]
+      print R.stratum()
+
+main(cyclic_cover_iet(10, [7, 3, 5, 5]), 10000, "test")
+print cyclic_cover_exact(10, [7, 3, 5, 5])
+print "\n"
+
+# main(cyclic_cover_iet(5, [1, 1, 1, 1]), 10000, "test")
+# print cyclic_cover_exact(5, [1, 1, 1, 1])
+# print "\n"
+
+# main(cyclic_cover_iet(5, [2, 1, 2, 1]), 10000, "test")
+# print cyclic_cover_exact(5, [2, 1, 2, 1])
+# print "\n"
+
+# main(cyclic_cover_iet(5, [3, 1, 2, 2]), 10000, "test")
+# print cyclic_cover_exact(5, [3, 1, 2, 2])
+# print "\n"
+
+# main(cyclic_cover_iet(5, [2, 2, 2, 2]), 10000, "test")
+# print cyclic_cover_exact(5, [2, 2, 2, 2])
+# print "\n"
+
+main(cyclic_cover_iet(5, [3, 1, 2, 2]), 1000, "test")
+print cyclic_cover_exact(5, [3, 1, 2, 2])
+print "\n"
+
+# for i in range(2, 6):
+#      main(pillow_case_iet(2*i+1), 1, "test")
+
+# def main(N, a):
+#      R = cyclic_cover_iet(N, a)
+#      print [R.signatures_isotopic(i) for i in range(R.n_characters())]
+#      print cyclic_cover_exact(N, a)
+#      print "\n"
+
+# main(7, [1, 5, 2, 4])
+
+
+
+
+
+
+
+
+
+"""   
 intervals = [[Interval('a',1), Interval('b',1), Interval('c',1), Interval('b',-1), Interval('d',1)], 
                [Interval('d',1), Interval('e',1), Interval('e',-1), Interval('c',1), Interval('a',1)]]
 
@@ -121,3 +152,4 @@ intervals = [[Interval('a',1), Interval('b',1), Interval('c',1), Interval('b',-1
 
 main(trivial_IntExchange(intervals).rand_lg(), N, "Q(4,1,-1)" + "_base_")
 main(orientable_double_cover_IntExchange(intervals).rand_lg(), N, "Q(4,1,-1)" + "_cover_")
+"""

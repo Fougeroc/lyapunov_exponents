@@ -1,12 +1,16 @@
 #Here we give one function to get a random length vector for the IE
-from sage.all import random, log, floor, Permutations, Permutation, copy, deepcopy, RealField, gap, SymmetricGroup, vector, matrix, ZZ, Integer, I, real_part
+from sage.all import random, log, floor, Permutations, Permutation, copy, deepcopy, RealField, gap, SymmetricGroup, vector, matrix, ZZ, Integer, I, real_part, conjugate, CC, lazy_attribute, real_part, UniversalCyclotomicField, E, cached_function, cached_method, ComplexLazyField, lcm, CyclotomicField, gcd
 from path_vector import *
 
 precision = 128
 diff_sum_seuil = 2**(-precision+20)
+UCF = UniversalCyclotomicField()
 
 R = RealField(precision)
 
+def UCF_mat_to_cyclotomic_field(M):
+    n = lcm([x.field_order() for x in M.list()])
+    return M.change_ring(CyclotomicField(n))
 
 class Interval(object) :
     def __init__(self, label, orientation):
@@ -94,19 +98,7 @@ class IntExchange(object):
         self.total_number_of_intervals_cover = (len(intervals[0]) + len(intervals[1]))*self.degree
         self.cycles = self.edge_cover_permutation().to_cycles()
         self.n_cycles = len(self.cycles)
-        self.h_one_rel_to_generator, self.generator_to_h_one_rel = self._free_basis() 
-        self.galois_group = self._galois_group()
-        self.character_table, self.character_degree, self.galois_group_order, self.galois_group_permutation, self.n_characters  = self._characters()
-#        self.h_one_projection_matrix = self._h_one_projection() #projection on the kernel inside h_one_rel
-        self.h_one_to_h_one_rel, self.h_one_rel_to_h_one = self._h_one_to_h_one_rel(), self._h_one_rel_to_h_one()
-        self.h_one_to_generator = self.h_one_to_h_one_rel*self.h_one_rel_to_generator
-        self.generator_to_h_one = self.generator_to_h_one_rel*self.h_one_rel_to_h_one
-        self.intersection_matrix = self.h_one_intersection_matrix()
-        self.signature_intersection = self.signature(self.intersection_matrix)
-        self.representation_matrix = self._representation_matrix()
-        self.intersection_forms_isotopic = self.intersection_isotopic()
-        self.signatures_isotopic = [self.signature(self.intersection_forms_isotopic[i]) for i in range(len(self.intersection_forms_isotopic))]
-        self.number_of_character_appeareance = [self._number_of_character_appeareance(i) for i in range(self.n_characters)]
+        #self.signature_intersection = self.signature(self.intersection_matrix())
     def __repr__(self):
         return ("Intervals    : %s\n               %s\nLengths      : %s\nPermutations : %s\n"
                 %(self._intervals[0], self._intervals[1], self._lengths,self._permutations))
@@ -139,6 +131,7 @@ class IntExchange(object):
         return(VectPaths(self.labels(), self.degrees()))
     def cover_generators(self):
         return([(d,a) for d in self.degrees() for a in self.labels()])
+    @cached_method
     def _free_basis(self):
         r"""
         Return matrix from free basis of H1(X, \Sigma) to R^(d*lab)
@@ -177,9 +170,10 @@ class IntExchange(object):
             return self.canonical_VectPaths().id(d,a).to_list()
         def eval(vect, (d,a)):
             return vect.val(d,a)
-        return matrix(ZZ, [vect_paths_id(s[i]) for i in range(len(s))]), matrix(ZZ, [[eval(projections[d][a],s[i]) for i in range(len(s))] 
-                                                                                     for d, a in self.cover_generators()])
-    def _galois_group(self):
+        return matrix(ZZ, [vect_paths_id(s[i]) for i in range(len(s))]), matrix(ZZ, [[eval(projections[d][a],s[i]) for i in range(len(s))]    
+                                                                             for d, a in self.cover_generators()])
+    @cached_method
+    def galois_group(self):
         r"""
         Return the galois group of the cover 
         """
@@ -191,6 +185,7 @@ class IntExchange(object):
             gap_list += perm_str + ", "
         G = gap("Centralizer(SymmetricGroup(%s), "%n + "Group([" + gap_list + "]))") 
         return G
+    @cached_method
     def _characters(self):
         r"""
         We want to decompose homology space with the observation that it gives a representation of the galois group.
@@ -203,11 +198,11 @@ class IntExchange(object):
             - perm : table s.t. perm[g] give the permutation associated to the group element g on the cover
             - n_cha : number of characters
         """
-        G = self.galois_group
+        G = self.galois_group()
         G_order, T = gap.Order(G)._sage_(), gap.CharacterTable(G)
         irr_characters = gap.Irr(T)
         n_cha = len(irr_characters)
-        character = [[irr_characters[i][j]._sage_() for j in range(1, G_order + 1)] for i in range(1, n_cha + 1)]
+        character = [[UCF(irr_characters[i][j]._sage_()) for j in range(1, G_order + 1)] for i in range(1, n_cha + 1)]
         character_degree = [gap.Degree(irr_characters[i])._sage_() for i in range(1, n_cha + 1)]
         gap_size_centralizers = gap.SizesCentralizers(T)
         gap_orders = gap.OrdersClassRepresentatives(T)
@@ -220,6 +215,21 @@ class IntExchange(object):
         perm = [Permutation(str(elements_group[i]))*Permutations(self.degree).identity() for i in range(1, G_order + 1)] 
         #identity assures that the permutation has the right size
         return(character, character_degree, G_order, perm, n_cha)
+    @cached_method
+    def character_table(self):
+        return self._characters()[0]
+    @cached_method
+    def character_degree(self):
+        return self._characters()[1]
+    @cached_method
+    def galois_group_order(self):
+        return self._characters()[2]
+    @cached_method
+    def galois_group_permutation(self):
+        return self._characters()[3]
+    @cached_method
+    def n_characters(self):
+        return self._characters()[4]
     def _which_cycle(self, i_edge):
         c = self.cycles
         for k in range(len(c)):
@@ -260,8 +270,9 @@ class IntExchange(object):
             i_depart_cycle, i_arrive_cycle = self._index_edge_cycle_orientated(d, a)
             projected_vectors.val(d,a)[i_arrive_cycle] += 1
             projected_vectors.val(d,a)[i_depart_cycle] -= 1
-        return self.h_one_rel_to_generator*matrix(ZZ, [projected_vectors.val(d,a) for d, a in self.cover_generators()]) 
-    def _h_one_projection(self):               #projection in h_one_rel on the kernel of the border application
+        return self.h_one_rel_to_generator()*matrix(ZZ, [projected_vectors.val(d,a) for d, a in self.cover_generators()]) 
+    @cached_method
+    def h_one_projection(self):               #projection in h_one_rel on the kernel of the border application
         ker = self._h_zero_sigma().kernel() 
         d = ker.degree()
         r = ker.rank()
@@ -284,7 +295,8 @@ class IntExchange(object):
         for i in range(r):
             P[i,i] = 1
         return B.inverse()*P*B
-    def _h_one_rel_to_h_one(self):
+    @cached_method
+    def h_one_rel_to_h_one(self):
         ker = self._h_zero_sigma().kernel() 
         d = ker.degree()
         r = ker.rank()
@@ -307,21 +319,37 @@ class IntExchange(object):
         for i in range(r):
             P[i,i] = 1
         return B_c.inverse()*P
-    def _h_one_to_h_one_rel(self):               #projection in h_one_rel on the kernel of the border application
+    @cached_method
+    def h_one_to_h_one_rel(self):               #projection in h_one_rel on the kernel of the border application
         ker = self._h_zero_sigma().kernel()
         return matrix(ZZ, ker.dimension(), ker.degree(), ker.basis())
-    def _representation_matrix(self):
+    @cached_method
+    def h_one_to_generator(self):
+        return self.h_one_to_h_one_rel()*self.h_one_rel_to_generator()
+    @cached_method
+    def h_one_rel_to_generator(self):
+        return self._free_basis()[0]
+    @cached_method
+    def generator_to_h_one_rel(self):
+        return self._free_basis()[1]
+    @cached_method
+    def generator_to_h_one(self):
+        return self.generator_to_h_one_rel()*self.h_one_rel_to_h_one()
+    @cached_method
+    def representation_matrix(self, t):
         r"""
         Matrix from H1(X, Sigma) to H1(X, Sigma)
+        action of $t \in G$ galois group
         """
-        return [self.h_one_to_generator*matrix(ZZ, [[Integer(self.galois_group_permutation[t](n) == m and a == b) for n in self.degrees() for a in self.labels()] 
-                            for m in self.degrees() for b in self.labels()])*self.generator_to_h_one
-                for t in range(self.galois_group_order)]
-    def _number_of_character_appeareance(self, ind_character):
+        return self.h_one_to_generator()*matrix(ZZ, [[Integer(self.galois_group_permutation()[t](n) == m and a == b) for n in self.degrees() 
+                                                      for a in self.labels()] 
+                            for m in self.degrees() for b in self.labels()])*self.generator_to_h_one()
+    @cached_method
+    def number_of_character_appeareance(self, ind_character):
         s = 0
-        for t in range(self.galois_group_order):
-            s += self.character_table[ind_character][t]*(self.representation_matrix[t].trace())
-        return s/self.galois_group_order
+        for t in range(self.galois_group_order()):
+            s += (self.character_table()[ind_character][t])*(self.representation_matrix(t).trace())
+        return s/self.galois_group_order()
     def dimension(self, i):
         s = 0
         for t in range(g):
@@ -789,24 +817,55 @@ class IntExchange(object):
         perm = range(self.total_number_of_intervals_cover)
         for c in self.degrees():
             for j in range(self.number_of_intervals[0]):
-                perm[self._index_edge(0,j,c)] = self._next_edge(0, j, c) + 1    #index must be greater than 1 for permutations
+                perm[self._index_edge(0, j, c)] = self._next_edge(0, j, c) + 1    #index must be greater than 1 for permutations
             for j in range(1, self.number_of_intervals[1] + 1):
-                perm[self._index_edge(1,j,c)] = self._next_edge(1, j, c) + 1
+                perm[self._index_edge(1, j, c)] = self._next_edge(1, j, c) + 1
         return (Permutation(perm))
     def _is_extremal(self, i):
         l = [len(self._intervals[0]), len(self._intervals[1])]
         n = l[0] + l[1]
-        i_base = (i-1) % n
-        return( i_base == 0 or i_base == l[0] )
-    def genus(self):
-        sum_d = 0
+        j_base = (i-1) % n
+        return( j_base == 0 or j_base == l[0] )
+    def singularities_order(self):
+        r"""
+        To compute the angle around a singularity, we use the following simple argument.
+        If you apply the Teichmueller flow, the singularity order won't change, and the angle betwin two intervals
+        will tend to \pi except at extremal point where it tends to 0.
+        We first count the angle and then substract it by 2 to get the quadratic singularity order.
+        """
+        singularities = [0 for k in range(self.n_cycles)]
         for k in range(self.n_cycles):
             c = self.cycles[k]
-            d = 0
             for i in range(len(c)):
                 if not self._is_extremal(c[i]):
-                    d += 1
-            sum_d += d - 2
+                    singularities[k] += 1
+            singularities[k] -= 2
+        return(singularities)
+    def occurences(self, l):
+        l.sort()
+        elements = []
+        nb_of_occurence = []
+        i = 0
+        while i < len(l):
+            if i == 0 or l[i] <> l[i-1]:
+                elements.append(l[i])
+                nb_of_occurence.append(0)
+            nb_of_occurence[len(elements) - 1] += 1
+            i += 1
+        return(elements, nb_of_occurence)
+    def stratum(self):
+        order_of_singularity, nb_of_occurence = self.occurences(self.singularities_order())
+        n = len(order_of_singularity)
+        if n == 1:
+            return "Q(" + str(order_of_singularity[0]) + "^" + str(nb_of_occurence[0]) + ")"
+        s = "Q("
+        s += str(order_of_singularity[0]) + "^" + str(nb_of_occurence[0]) + ","
+        for i in range(1, n - 1):
+            s += " " + str(order_of_singularity[i]) + "^" + str(nb_of_occurence[i]) + ","
+        s += " " + str(order_of_singularity[n-1]) + "^" + str(nb_of_occurence[n-1]) + ")"
+        return(s)
+    def genus(self):
+        sum_d = sum(self.singularities_order())
         return((sum_d + 4)/4)
     def couple_paths(self, v, i_edge_cycle_ref):
         arrive, depart = [], []
@@ -862,17 +921,13 @@ class IntExchange(object):
         d_aux, a_aux, side_aux = self._next_path_generator(d_arr, a_arr, side_arr)
         c = 0
         s = 0
-        #print (d_arr, a_arr, side_arr), (d_dep, a_dep, side_dep)
         while (d_aux, a_aux, side_aux) <> (d_dep, a_dep, side_dep):
-            #print (d_aux, a_aux, side_aux)
-#            if not self.is_cycle(d_aux, a_aux):
             if side_aux == "Right":
                 c += v.val(d_aux, a_aux)*self.label_orientation(a_aux)
             if side_aux == "Left":
                 c -= v.val(d_aux, a_aux)*self.label_orientation(a_aux)
             d_aux, a_aux, side_aux = self._next_path_generator(d_aux, a_aux, side_aux)
             s += 1
-        #print "c: %s"%c
         return c
     def global_intersection(self, v, w):
         r"""
@@ -880,9 +935,7 @@ class IntExchange(object):
         """
         res = 0
         for i in range(self.n_cycles):
-            #print "cycle : %s"%i
             arrive, depart = self.couple_paths(v, i)
-            #print arrive, depart, v, w
             if len(arrive) <> len(depart):
                 print arrive, depart
                 print v
@@ -890,40 +943,61 @@ class IntExchange(object):
             for j in range(len(arrive)):
                 res += self.intersection(arrive[j], depart[j], w)
         return res
-    def h_one_intersection_matrix(self):
-        dim = self.h_one_to_generator.nrows()
+    @cached_method
+    def intersection_matrix(self):
+        dim = self.h_one_to_generator().nrows()
         def inter(i, j):
-            v_i = self.canonical_VectPaths().copy_vector(self.h_one_to_generator[i])
-            v_j = self.canonical_VectPaths().copy_vector(self.h_one_to_generator[j])
+            v_i = self.canonical_VectPaths().copy_vector(self.h_one_to_generator()[i])
+            v_j = self.canonical_VectPaths().copy_vector(self.h_one_to_generator()[j])
             return self.global_intersection(v_i, v_j)
-        return matrix(dim, inter)
-    def isotopic_projection(self, i_character, v):
+        return UCF(E(4))*matrix(dim, inter)
+    def vector_isotopic_projection(self, i_character, v):
         r"""
         Return a new VectPaths corresponding to the projection of self to the isotropic space of the \chi_i character
         """
         res = self.canonical_VectPaths()
+        coeff = CC(self.character_degree()[i_character]/self.galois_group_order())
         for d, a in self.cover_generators():
             somme = 0
-            for t in range(self.galois_group_order):
-                somme += self.character_table[i_character][t]*v.val(self.galois_group_permutation[t].inverse()(d), a)
-            res._vect[d][a] = self.character_degree[i_character]/self.galois_group_order*somme
+            for t in range(self.galois_group_order()):
+                somme += CC(self.character_table()[i_character][t])*v.val(self.galois_group_permutation()[t].inverse()(d), a)
+            res._vect[d][a] = coeff*somme
         return(res)
-    def isotopic_projection_matrix(self, i_character):
-        return self.h_one_to_generator*matrix([self.isotopic_projection(i_character, self.canonical_VectPaths().id(d, a)).to_list() 
-                                               for d, a in self.cover_generators()])*self.generator_to_h_one
-    def intersection_isotopic(self):
-        return [self.isotopic_projection_matrix(k)*self.intersection_matrix*self.isotopic_projection_matrix(k).transpose() 
-                                      for k in range(self.n_characters)]
+    def isotopic_projection(self, i_character, (d_j, a_j)):
+        r"""
+        Return a new VectPaths corresponding to the projection of self to the isotropic space of the \chi_i character
+        recall the formula p_i_character (d, a) = \sum_{t \in G} char_i(t).conjugate (galois_group_permutation(t)(d), a)
+        """
+        res = self.canonical_VectPaths()
+        char = self.character_table()[i_character]
+        coeff = self.character_degree()[i_character]/self.galois_group_order()
+        somme = 0
+        for t in range(self.galois_group_order()):
+            res._vect[self.galois_group_permutation()[t](d_j)][a_j] += coeff*char[t]
+        return(res)
+    @cached_method
+    def isotopic_projection_matrix(self, i):
+        return self.h_one_to_generator()*matrix([self.isotopic_projection(i, (d, a)).to_list() for d, a in self.cover_generators()])*self.generator_to_h_one()
+    @cached_method
+    def intersection_form_isotopic(self, i):
+        return self.isotopic_projection_matrix(i)*self.intersection_matrix()*self.isotopic_projection_matrix(i).transpose().conjugate()
     def signature(self, M):
+        P = UCF_mat_to_cyclotomic_field(M).characteristic_polynomial()
+        roots = P.change_ring(CC).roots(CC)
         p, q = 0, 0
-        eigenvalues = M.eigenvalues()
-        for i in range(len(eigenvalues)):
-            ev = eigenvalues[i]*I/2
-            if ev > 0:
-                p += 1
-            if ev < 0:
-                q += 1
+        for i in range(len(roots)) :
+            if abs(roots[i][0].imag_part()) > 10**(-10) :
+                print "Problem"
+                print roots[i]
+                raise NameError('Valeur propre')
+            if roots[i][0].real_part() < -10**(-10) :
+                p += roots[i][1]
+            if roots[i][0].real_part() > 10**(-10) :
+                q += roots[i][1]
         return(p,q)
+    @cached_method
+    def signatures_isotopic(self, i): 
+        return self.signature(self.intersection_form_isotopic(i))
 
 
 def trivial_IntExchange(intervals):
@@ -956,3 +1030,96 @@ def orientable_double_cover_IntExchange(intervals):
         else :
             return Permutation('(1,2)')
     return IntExchange(intervals, None, {intervals[i][j].label: orientable_double_cover_permutation(i, j) for i in range(2) for j in range(len(intervals[i])) })
+
+
+def square_tiled_surface(horizontal_permutation, vertical_permutation):
+    return IntExchange([[Interval('a', 1), Interval('b', 1)], [Interval('b', 1), Interval('a', 1)]], 
+                       None, {'a' : horizontal_permutation, 'b' : vertical_permutation})
+
+def square_tiled_surface_pillow_case(perm_a, perm_b, perm_c):
+    return IntExchange([[Interval('a', 1), Interval('a', -1), Interval('b', 1)], [Interval('b', 1), Interval('c', 1), Interval('c', -1)]], 
+                       None, {'a' : perm_a, 'b' : perm_b, 'c' : perm_c})
+
+def EKZ_example(n):
+    horizontal_permutation = Permutation ([ (k + 1) % n + 1 for k in range(n) ])
+    vertical_permutation = Permutation ([ n - k for k in range(n) ])
+    return square_tiled_surface(horizontal_permutation, vertical_permutation).rand_lg()
+
+def pillow_case_iet(N):
+    perm_a = Permutation ([ (k + N - 2) % (2*N) + 1 for k in range(2*N) ])
+    perm_b = Permutation ([ (k + 0) % (2*N) + 1 for k in range(2*N) ])
+    perm_c = Permutation ([ (k + N) % (2*N) + 1 for k in range(2*N) ])
+    return square_tiled_surface_pillow_case(perm_a, perm_b, perm_c).rand_lg()
+
+def pillow_case_exact(N):
+    a = range(4)
+    if N % 2 == 1:
+        a[0] = N + 2
+        a[1] = N - 2
+        a[2] = N
+        a[3] = N
+    if N % 2 == 0:
+        a[0] = N-1
+        a[1] = 1
+        a[2] = N-1
+        a[3] = 1
+    return cyclic_cover(2*N, a)
+
+
+def cyclic_cover_iet(N, a):
+    if a[0] + a[1] <> a[2] + a[3]:
+        raise NameError('Not square-tiled cyclic cover')
+    n_a = -a[1]
+    n_b = a[0] + a[1]
+    n_c = N - a[3]
+    perm_a = Permutation ([ (k + n_a) % N + 1 for k in range(N) ])
+    perm_b = Permutation ([ (k + n_b) % N + 1 for k in range(N) ])
+    perm_c = Permutation ([ (k + n_c) % N + 1 for k in range(N) ])
+    return square_tiled_surface_pillow_case(perm_a, perm_b, perm_c).rand_lg()
+
+
+def cyclic_cover_exact(N, a):
+    res = range(N-1)
+    for k in range(1, N):
+        t = range(4)
+        for i in range(4):
+            t[i] = RR(a[i]/(N+ 0.)*k).frac()
+        res[k-1] = Integer(round(sum(t)))
+    print res
+    results = [(0,0)]
+    for k in range(1, N):
+        dim = res[k-1] + res[N - k - 1] - 2
+        results += [(res[N - k - 1] - 1 , res[k - 1] - 1)]
+    singularities_order = []
+    for i in range(4):
+        singularities_order += [N / gcd(a[i], N) - 2 for k in range(gcd(a[i], N))]
+    print stratum(occurences(singularities_order))
+    return results
+
+
+
+def occurences(l):
+        l.sort()
+        elements = []
+        nb_of_occurence = []
+        i = 0
+        while i < len(l):
+            if i == 0 or l[i] <> l[i-1]:
+                elements.append(l[i])
+                nb_of_occurence.append(0)
+            nb_of_occurence[len(elements) - 1] += 1
+            i += 1
+        return(elements, nb_of_occurence)
+
+def stratum((order_of_singularity, nb_of_occurence)):
+        n = len(order_of_singularity)
+        if n == 1:
+            return "Q(" + str(order_of_singularity[0]) + "^" + str(nb_of_occurence[0]) + ")"
+        s = "Q("
+        s += str(order_of_singularity[0]) + "^" + str(nb_of_occurence[0]) + ","
+        for i in range(1, n - 1):
+            s += " " + str(order_of_singularity[i]) + "^" + str(nb_of_occurence[i]) + ","
+        s += " " + str(order_of_singularity[n-1]) + "^" + str(nb_of_occurence[n-1]) + ")"
+        return(s)
+
+#@cached_method
