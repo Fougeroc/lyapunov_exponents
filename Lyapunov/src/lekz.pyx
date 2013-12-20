@@ -9,31 +9,26 @@ cdef extern from "lyapunov_exponents.h":
         pass
     ctypedef struct generalized_permutation:
         pass
-    ctypedef struct permutation:
-        pass
 
     # initialisation/allocation/free
     generalized_permutation * new_generalized_permutation(int *perm, int *twin, int k, int n)
-    quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation * gp, permutation ** sigma, size_t degree, size_t nb_vectors)
+    quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation * gp, size_t ** sigma, size_t degree, size_t nb_vectors)
     void set_lengths(quad_cyclic_cover * qcc, long double	       *lengths)
     void set_random_lengths_quad_cyclic_cover(quad_cyclic_cover * qcc)
     void set_random_vectors(quad_cyclic_cover * qcc)
     void renormalize_length_quad_cyclic_cover(quad_cyclic_cover *qcc)
-    permutation * new_permutation(size_t degree)
-    void perm_copy_table(permutation *perm, size_t* tab)
 
     #int check_generalized_permutation(generalized_permutation *p)
     #int check_quad_cyclic_cover(quad_cyclic_cover * qcc)
 
     void free_generalized_permutation(generalized_permutation ** gp)
     void free_quad_cyclic_cover(quad_cyclic_cover ** qcc)
-    void free_permutation(permutation **perm)
 
     # print
     #void print_generalized_permutation(generalized_permutation * p)
     void print_quad_cyclic_cover(quad_cyclic_cover * qcc)
     void print_vectors(quad_cyclic_cover * qcc)
-    void print_permutation(permutation *perm)
+    void print_permutation(size_t *perm, size_t degree)
 
     # algorithms
     #void renormalize_length_quad_cyclic_cover(quad_cyclic_cover * qcc)
@@ -79,7 +74,7 @@ def lyapunov_exponents_H_plus_cyclic_cover(
       mean and standard deviation
     """
     cdef int *p, *t   # permutation, twin, sigma
-    cdef permutation **s
+    cdef size_t **s
     cdef size_t *tab
     cdef generalized_permutation *gp_c
     cdef quad_cyclic_cover *qcc
@@ -90,16 +85,15 @@ def lyapunov_exponents_H_plus_cyclic_cover(
     # convert the data of into C values
     p = <int *> malloc(2 * n * sizeof(int))
     t = <int *> malloc(2 * n * sizeof(int))
-    s = <permutation **> malloc(n * sizeof(permutation*))
-    tab = <size_t *> malloc(degree * sizeof(size_t))
+    s = <size_t **> malloc(n * sizeof(size_t*))
 
     for i from 0 <= i < n:
         p[i] = gp[i]
         t[i] = twin[i]
+        tab = <size_t *> malloc(degree * sizeof(size_t))
         for j in range(degree):
             tab[j] = sigma[j + degree * i]
-        s[i] = new_permutation(degree)
-        perm_copy_table(s[i], tab)
+        s[i] = tab
     for i from n <= i < 2*n:
         p[i] = gp[i]
         t[i] = twin[i]
@@ -107,8 +101,10 @@ def lyapunov_exponents_H_plus_cyclic_cover(
     theta = <double *> malloc((nb_vectors+1) * sizeof(double))
 
     gp_c = new_generalized_permutation(p, t, k, n)
-    qcc = <quad_cyclic_cover *> new_quad_cyclic_cover(gp_c,s,degree,nb_vectors)
-
+    qcc = <quad_cyclic_cover *> new_quad_cyclic_cover(gp_c, s, degree, nb_vectors)
+    
+    print_quad_cyclic_cover(qcc)
+    
     if lengths == None:
        set_random_lengths_quad_cyclic_cover(qcc)
     else:
@@ -121,7 +117,7 @@ def lyapunov_exponents_H_plus_cyclic_cover(
     free_generalized_permutation(&(gp_c))
     free(p)
     free(t)
-    free(s)
+
 
     res = [[] for _ in xrange(nb_vectors+1)]
     if nb_vectors == 1:
@@ -137,7 +133,14 @@ def lyapunov_exponents_H_plus_cyclic_cover(
             for j in xrange(nb_vectors+1):
                 res[j].append(theta[j])
 
+
+    for i in xrange(n):
+        free(s[i])
+    free(s)
+
     free_quad_cyclic_cover(&qcc)
+
+    free_GS()
     free(theta)
 
     return res

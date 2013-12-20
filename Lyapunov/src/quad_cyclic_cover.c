@@ -112,7 +112,7 @@ int check_quad_cyclic_cover(quad_cyclic_cover * qcc)
 	return 0;
 }
 
-quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation *gp, permutation **sigma, size_t degree, size_t nb_vectors)
+quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation *gp, size_t **sigma, size_t degree, size_t nb_vectors)
 {
 	size_t i;
 	quad_cyclic_cover * qcc;
@@ -191,9 +191,9 @@ quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation *gp, permutati
 	qcc->top = qcc->intervals + gp->k - 1;
 	qcc->bot = qcc->intervals + 2*gp->n - 1;
 
-	qcc->perm_one = new_permutation(degree);
-	qcc->perm_two = new_permutation(degree);
-	qcc->perm_buffer = new_permutation(degree);
+	qcc->perm_one = (size_t *) malloc(degree * sizeof(size_t));
+	qcc->perm_two = (size_t *) malloc(degree * sizeof(size_t));
+	qcc->perm_buffer = (size_t *) malloc(degree * sizeof(size_t));
 
 	return qcc;
 }
@@ -370,9 +370,9 @@ void free_quad_cyclic_cover(quad_cyclic_cover ** qcc)
 		}
 
 		
-		free_permutation(&((*qcc)->perm_one));
-		free_permutation(&((*qcc)->perm_two));
-		free_permutation(&((*qcc)->perm_buffer));
+		free((*qcc)->perm_one);
+		free((*qcc)->perm_two);
+		free((*qcc)->perm_buffer);
 
 		free(*qcc);
 		*qcc = NULL;
@@ -418,7 +418,7 @@ void print_quad_cyclic_cover(quad_cyclic_cover * qcc)
 	  printf(" %f", (double) (qcc->labels)[j].length);
 	printf("\n");
 	for(j=0; j< qcc->nb_labels; ++j)
-	  print_permutation((qcc->labels)[j].sigma);
+	  print_permutation((qcc->labels)[j].sigma, qcc->degree);
 	if (verbose){
 	printf("\n  total: %f", (double) qcc->length);
 	printf("\n");
@@ -433,351 +433,12 @@ void print_quad_cyclic_cover(quad_cyclic_cover * qcc)
 	printf("\nZZ/%zuZZ \n cover:\n", qcc->degree);
 	for(j=0; j < qcc->nb_labels; ++j){
 	  for(n=0; n < qcc->degree; ++n)
-	    printf(" %d", (qcc->labels)[j].sigma->perm[n]);
+	    printf(" %d", (qcc->labels)[j].sigma[n]);
 	  printf("\n");
 	};
 	}
 	printf("\n");
 }
-
-
-
-/* void rauzy_induction_quad_cyclic_cover(quad_cyclic_cover *qcc) */
-/* /\* one step of Rauzy-Zorich induction                     *\/ */
-/* /\* the winner is the big interval and the loser the small *\/ */
-/* /\* the loser has to move                                  *\/ */
-/* { */
-/* 	interval *win, *los, *win_twin; */
-/* 	interval **los_ptr; */
-
-/* 	// we actually know a priori who wins since the top and bot exactly alternate!! */
-/* 	if(qcc->top->lab->length > qcc->bot->lab->length) */
-/* 	{ */
-/* 		win = qcc->top; */
-/* 		los = qcc->bot; */
-/* 		los_ptr = &(qcc->bot); */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		win = qcc->bot; */
-/* 		los = qcc->top; */
-/* 		los_ptr = &(qcc->top); */
-/* 	} */
-/* 	/\* Warning: los_ptr is intended to modify either qcc->top or qcc->bot *\/ */
-/* 	win_twin = win->twin; */
-
-/* 	/\* set some useful permutation for the change cover information*\/ */
-/* 	perm_ident_rev(los, qcc->ident_rev_los); */
-/* 	perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 	perm_ident_rev(win, qcc->ident_rev_win); */
-/* 	inverse_permutation(qcc->ident_rev_win, qcc->ident_rev_win_inv); */
-/* 	perm_name(win, qcc->name_win); */
-/* 	inverse_permutation(qcc->name_win, qcc->name_win_inv); */
-/* 	perm_name(los, qcc->name_los); */
-/* 	perm_name(los->twin, qcc->name_los_twin); */
-/* 	perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 	perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-
-/* 	if(win->lab->same_interval) */
-/* 	{ */
-/* 		do{ */
-/* 			/\* modify the length *\/ */
-/* 			win->lab->length -= los->lab->length; */
-/* 			qcc->length -= los->lab->length; */
-			
-/* 			/\* move los after win_twin *\/ */
-/* 			*los_ptr = los->next; */
-/* 			los->next->prev = NULL; */
-/* 			los->next = win_twin->next; */
-/* 			los->prev = win_twin; */
-/* 			if(win_twin->next != NULL) win_twin->next->prev = los; */
-/* 			win_twin->next = los; */
-
-/* 			/\* modify the position *\/ */
-/* 			los->lab->same_interval = 1 - los->lab->same_interval; */
-
-/* 			/\* change orientation *\/ */
-/* 			los->orientation = - los->orientation; //oublie dans version precedente */
- 
-/* 			/\* modify the cover data                     *\/ */
-/* 			if (give_name(los)) */
-/* 			  perm_product(qcc->ident_rev_win_inv, qcc->ident_rev_los, los->lab->sigma); */
-/* 			else */
-/* 			  perm_product(qcc->ident_rev_los_twin, qcc->ident_rev_win, los->lab->sigma); */
-
-/* 			/\* set the loser for the next round *\/ */
-/* 			los = *los_ptr; */
-/* 		}while(win->lab->length > los->lab->length); */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		do{ */
-/* 			/\* modify the length *\/ */
-/* 			win->lab->length -= los->lab->length; */
-/* 			qcc->length -= los->lab->length; */
-
-/* 			/\* move los before win_twin *\/ */
-/* 			if(win->twin != los->next) */
-/* 			{ */
-/* 				*los_ptr = los->next; */
-/* 				los->next->prev = NULL; */
-/* 				los->prev = win_twin->prev; */
-/* 				los->next = win_twin; */
-/* 				if(win_twin->prev != NULL) win_twin->prev->next = los; */
-/* 				win_twin->prev = los; */
-/* 			} */
-
-/* 			/\* modify the cover data                     *\/ */
-/* 			if (give_name(los)) */
-/* 			  perm_product(qcc->ident_rev_win_inv, qcc->ident_rev_los, los->lab->sigma); */
-/* 			else */
-/* 			  perm_product(qcc->ident_rev_los_twin, qcc->ident_rev_win, los->lab->sigma); */
-
-/* 			/\* set the loser for the next round *\/ */
-/* 			los = *los_ptr; */
-/* 		}while(win->lab->length > los->lab->length); */
-/* 	} */
-/* } */
-
-/* void rauzy_induction_H_plus_quad_cyclic_cover_bis(quad_cyclic_cover *qcc) */
-/* /\* perform one step of rauzy-zorich induction                           *\/ */
-/* /\* v shoud have dimension (nb_vectors) x (qcc->degree * qcc->nb_labels) *\/ */
-/* { */
-/* 	interval *win, *los, *win_twin; */
-/* 	interval **los_ptr; */
-/* 	size_t jlos,jwin;  /\* index of los and win in the matrix *\/ */
-/* 	size_t i,k; */
-/* 	double * tmp; */
-/* 	int debug = 0, debug_ = 0; */
-	
-/* 	if(qcc->top->lab->length > qcc->bot->lab->length) */
-/* 	{ */
-/* 		win = qcc->top; */
-/* 		los = qcc->bot; */
-/* 		los_ptr = &(qcc->bot); */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		win = qcc->bot; */
-/* 		los = qcc->top; */
-/* 		los_ptr = &(qcc->top); */
-/* 	} */
-/* 	/\* Warning: los_ptr is intended to modify either qcc->top or qcc->bot *\/ */
-/* 	win_twin = win->twin; */
-/* 	jlos = los->lab - qcc->labels; */
-/* 	jwin = win->lab - qcc->labels; */
-
-/* 	/\* set some useful permutation for the change cover information*\/ */
-/* 	perm_ident_rev(los, qcc->ident_rev_los); */
-/* 	perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 	perm_ident_rev(win, qcc->ident_rev_win); */
-/* 	inverse_permutation(qcc->ident_rev_win, qcc->ident_rev_win_inv); */
-/* 	perm_name(win, qcc->name_win); */
-/* 	inverse_permutation(qcc->name_win, qcc->name_win_inv); */
-/* 	perm_name(los, qcc->name_los); */
-/* 	perm_name(los->twin, qcc->name_los_twin); */
-/* 	perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 	perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-
-/* 	if(win->lab->same_interval)   /\* win and its twin are on the same interval *\/ */
-/* 	{ */
-/* 		do{ */
-/* 		  	perm_ident_rev(los, qcc->ident_rev_los); */
-/* 			perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 			perm_ident_rev(win, qcc->ident_rev_win); */
-/* 			inverse_permutation(qcc->ident_rev_win, qcc->ident_rev_win_inv); */
-/* 			perm_name(win, qcc->name_win); */
-/* 			inverse_permutation(qcc->name_win, qcc->name_win_inv); */
-/* 			perm_name(los, qcc->name_los); */
-/* 			perm_name(los->twin, qcc->name_los_twin); */
-/* 			perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 			perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-
-/* 			if (debug_){ */
-/* 			  print_quad_cyclic_cover(qcc); */
-/* 			} */
-			
-/* 			if (debug){ */
-/* 			  printf("perm:\n"); */
-/* 			  print_permutation(qcc->name_los); */
-/* 			  print_permutation(qcc->name_win); */
-/* 			  print_permutation(qcc->name_los_twin); */
-/* 			  print_permutation(qcc->ident_rev_win); */
-/* 			  print_permutation(qcc->ident_rev_los); */
-/* 			  print_permutation(qcc->ident_rev_los_twin); */
-/* 			} */
-
-/* 		  /\* modify the length *\/ */
-/* 		  win->lab->length -= los->lab->length; */
-/* 		  qcc->length -= los->lab->length; */
-		  
-/* 		  /\* move los after win_twin *\/ */
-/* 		  *los_ptr = los->next; */
-/* 		  los->next->prev = NULL; */
-/* 		  los->next = win_twin->next; */
-/* 		  los->prev = win_twin; */
-/* 		  if(win_twin->next != NULL) win_twin->next->prev = los; */
-/* 		  win_twin->next = los; */
-
-/* 		  /\* change orientation *\/ */
-/* 		  los->orientation = - los->orientation; //oublie dans version precedente */
-
-/* 		  /\* modify the position *\/ */
-/* 		  los->lab->same_interval = 1 - los->lab->same_interval; */
-			
-/* 		  /\* apply KZ to the vectors *\/ */
-/* 		  /\* we put the result of KZ in qcc->buffer and then we switch the pointers *\/ */
-/* 		  for(i=0; i<qcc->nb_vectors; ++i) */
-/* 		    { */
-/* 		      for(k=0; k<qcc->degree; ++k) */
-/* 			/\* recall: 0 <= i < nb_vectors, 0 <= j < nb_labels, 0 <= k < degree *\/ */
-/* 			/\* elt at pos (i,j,k) is (qcc->labels)[j].v[i + nb_vectors * k]     *\/ */
-/* 			{ */
-/* 			  (qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			    (qcc->labels)[jwin].v[i + qcc->nb_vectors * k] */
-/* 			    - los->orientation * win->orientation * (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_kz_one->perm[k])]; */
-/* 			} */
-/* 		      // switch qcc->labels[jlos] and qcc->buffer */
-/* 		    } */
-/* 		  tmp = qcc->buffer; qcc->buffer = (qcc->labels)[jwin].v; (qcc->labels)[jwin].v = tmp; */
-		  
-/* 		  for(i=0; i<qcc->nb_vectors; ++i) */
-/* 		    { */
-/* 		      for(k=0; k<qcc->degree; ++k) */
-/* 			/\* recall: 0 <= i < nb_vectors, 0 <= j < nb_labels, 0 <= k < degree *\/ */
-/* 			/\* elt at pos (i,j,k) is (qcc->labels)[j].v[i + nb_vectors * k]     *\/ */
-/* 			{ */
-/* 			  if (los->twin->give_name) */
-/* 			    (qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			      (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_kz_two->perm[k])]; */
-/* 			  else */
-/* 			    (qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			      (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->name_los_twin->perm[k])]; */
-/* 			} */
-/* 		      // switch qcc->labels[jlos] and qcc->buffer */
-/* 		    } */
-/* 		  tmp = qcc->buffer; qcc->buffer = (qcc->labels)[jlos].v; (qcc->labels)[jlos].v = tmp; */
-		  
-/* 		  /\* modify the cover data                     *\/ */
-/* 		  if (give_name(los)) */
-/* 		    perm_product(qcc->ident_rev_win_inv, qcc->ident_rev_los, los->lab->sigma); */
-/* 		  else */
-/* 		    perm_product(qcc->ident_rev_los_twin, qcc->ident_rev_win, los->lab->sigma); */
-		  
-/* 		  /\* set the loser for the next round *\/ */
-/* 		  los = *los_ptr; */
-/* 		  jlos = los->lab - qcc->labels; */
-
-/* 		  perm_ident_rev(los, qcc->ident_rev_los); */
-/* 		  perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 		  perm_name(los, qcc->name_los); */
-/* 		  perm_name(los->twin, qcc->name_los_twin); */
-/* 		  perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 		  perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-/* 		}while(win->lab->length > los->lab->length); */
-/* 	} */
-/* 	else  /\* win and its twin are on different intervals *\/ */
-/* 	  { */
-/* 	    do{ */
-/* 	      	perm_ident_rev(los, qcc->ident_rev_los); */
-/* 		perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 		perm_ident_rev(win, qcc->ident_rev_win); */
-/* 		inverse_permutation(qcc->ident_rev_win, qcc->ident_rev_win_inv); */
-/* 		perm_name(win, qcc->name_win); */
-/* 		inverse_permutation(qcc->name_win, qcc->name_win_inv); */
-/* 		perm_name(los, qcc->name_los); */
-/* 		perm_name(los->twin, qcc->name_los_twin); */
-/* 		perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 		perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-
-/* 	      if (debug_){ */
-/* 		printf("sdkj"); */
-/* 		print_quad_cyclic_cover(qcc); */
-/* 		} */
-
-/* 	      if (debug){ */
-/* 		printf("perm:\n"); */
-/* 		print_permutation(qcc->name_los); */
-/* 		print_permutation(qcc->name_win); */
-/* 		print_permutation(qcc->name_los_twin); */
-/* 		print_permutation(qcc->ident_rev_win); */
-/* 		print_permutation(qcc->ident_rev_los); */
-/* 		print_permutation(qcc->ident_rev_los_twin); */
-/* 	      } */
-
-/* 	      /\* modify the length *\/ */
-/* 	      win->lab->length -= los->lab->length; */
-/* 	      qcc->length -= los->lab->length; */
-	      
-/* 	      /\* move los before win_twin *\/ */
-/* 	      if(win->twin != los->next) */
-/* 		{ */
-/* 		  *los_ptr = los->next; */
-/* 		  los->next->prev = NULL; */
-/* 		  los->prev = win_twin->prev; */
-/* 		  los->next = win_twin; */
-/* 		  if(win_twin->prev != NULL) win_twin->prev->next = los; */
-/* 		  win_twin->prev = los; */
-/* 		} */
-	      
-/* 	      /\* modify the position in this case the interval stay at the same level*\/ */
-/* 	      //los->lab->same_interval = 1 - los->lab->same_interval; */
-		     
-/* 	      /\* apply KZ to the vectors *\/ */
-/* 	      /\* we put the result of KZ in qcc->buffer and then we switch the pointers *\/ */
-/* 	      for(i=0; i<qcc->nb_vectors; ++i) */
-/* 		{ */
-/* 		  for(k=0; k<qcc->degree; ++k) */
-/* 		    /\* recall: 0 <= i < nb_vectors, 0 <= j < nb_labels, 0 <= k < degree *\/ */
-/* 		    /\* elt at pos (i,j,k) is (qcc->labels)[j].v[i + nb_vectors * k]     *\/ */
-/* 		    { */
-/* 		      (qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			(qcc->labels)[jwin].v[i + qcc->nb_vectors * k] */
-/* 			- los->orientation * win->orientation * (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_kz_one->perm[k])]; */
-/* 		    } */
-/* 		  // switch qcc->labels[jlos] and qcc->buffer */
-/* 		} */
-/* 	      tmp = qcc->buffer; qcc->buffer = (qcc->labels)[jwin].v; (qcc->labels)[jwin].v = tmp; */
-	      
-/* 	      for(i=0; i<qcc->nb_vectors; ++i) */
-/* 		{ */
-/* 		  for(k=0; k<qcc->degree; ++k) */
-/* 		    /\* recall: 0 <= i < nb_vectors, 0 <= j < nb_labels, 0 <= k < degree *\/ */
-/* 		    /\* elt at pos (i,j,k) is (qcc->labels)[j].v[i + nb_vectors * k]     *\/ */
-/* 		    { */
-/* 		      if (los->twin->give_name) */
-/* 			(qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			  (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_kz_two->perm[k])]; */
-/* 		      else */
-/* 			(qcc->buffer)[i + qcc->nb_vectors * k] =  */
-/* 			  (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->name_los_twin->perm[k])]; */
-/* 		    } */
-/* 		  // switch qcc->labels[jlos] and qcc->buffer */
-/* 		} */
-/* 	      tmp = qcc->buffer; qcc->buffer = (qcc->labels)[jlos].v; (qcc->labels)[jlos].v = tmp; */
-	      
-	      
-/* 	      /\* modify the cover data                     *\/ */
-/* 	      if (give_name(los)) */
-/* 		perm_product(qcc->ident_rev_win_inv, qcc->ident_rev_los, los->lab->sigma); */
-/* 	      else */
-/* 		perm_product(qcc->ident_rev_los_twin, qcc->ident_rev_win, los->lab->sigma); */
-	      
-
-/* 	      /\* set the loser for next round *\/ */
-/* 	      los = *los_ptr; */
-/* 	      jlos = los->lab - qcc->labels; */
-/* 	      perm_ident_rev(los, qcc->ident_rev_los); */
-/* 	      perm_ident_rev(los->twin, qcc->ident_rev_los_twin); */
-/* 	      perm_name(los, qcc->name_los); */
-/* 	      perm_name(los->twin, qcc->name_los_twin); */
-/* 	      perm_product(qcc->name_los, qcc->name_win_inv, qcc->perm_kz_one); */
-/* 	      perm_product(qcc->name_los, qcc->ident_rev_win_inv, qcc->perm_kz_two); */
-/* 	    }while(win->lab->length > los->lab->length); */
-/* 	  } */
-/* } */
-
-
 
 
 void rauzy_induction_H_plus_quad_cyclic_cover(quad_cyclic_cover *qcc)
@@ -810,18 +471,18 @@ void rauzy_induction_H_plus_quad_cyclic_cover(quad_cyclic_cover *qcc)
   jwin = win->lab - qcc->labels;
 
   if (los->orientation == 1 && win->orientation == 1){
-    cyclic_permutation(0, qcc->perm_one);
-    inverse_permutation(win->lab->sigma, qcc->perm_two);}
+    cyclic_permutation(0, qcc->perm_one, qcc->degree);
+    inverse_permutation(win->lab->sigma, qcc->perm_two, qcc->degree);}
   if (los->orientation == 1 && win->orientation == -1){
-    copy_permutation(win->lab->sigma, qcc->perm_one);
-    copy_permutation(win->lab->sigma, qcc->perm_two);}
+    memcpy(qcc->perm_one, win->lab->sigma, qcc->degree * sizeof(size_t));
+    memcpy(qcc->perm_two, win->lab->sigma, qcc->degree * sizeof(size_t));}
   if(los->orientation == -1 && win->orientation == 1){
-    inverse_permutation(los->lab->sigma, qcc->perm_one);
-    cyclic_permutation(0, qcc->perm_two);}
+    inverse_permutation(los->lab->sigma, qcc->perm_one, qcc->degree);
+    cyclic_permutation(0, qcc->perm_two, qcc->degree);}
   if(los->orientation == -1 && win->orientation == -1){
-    inverse_permutation(los->lab->sigma, qcc->perm_buffer);
-    perm_product(win->lab->sigma, qcc->perm_buffer, qcc->perm_one);
-    cyclic_permutation(0,qcc->perm_two);}
+    inverse_permutation(los->lab->sigma, qcc->perm_buffer, qcc->degree);
+    perm_product(win->lab->sigma, qcc->perm_buffer, qcc->perm_one, qcc->degree);
+    cyclic_permutation(0,qcc->perm_two, qcc->degree);}
 
   if (debug_){
     printf("win :%i%i      los :%i%i\n", win->orientation, win->lab - qcc->labels, los->orientation, los->lab - qcc->labels);
@@ -829,8 +490,8 @@ void rauzy_induction_H_plus_quad_cyclic_cover(quad_cyclic_cover *qcc)
   }
   if (debug){
     printf("perm:\n");
-    print_permutation(qcc->perm_one);
-    print_permutation(qcc->perm_two);
+    print_permutation(qcc->perm_one, qcc->degree);
+    print_permutation(qcc->perm_two, qcc->degree);
   }
 
   /* modify the length */
@@ -874,7 +535,7 @@ void rauzy_induction_H_plus_quad_cyclic_cover(quad_cyclic_cover *qcc)
 	{
 	  (qcc->buffer)[i + qcc->nb_vectors * k] = 
 	    (qcc->labels)[jwin].v[i + qcc->nb_vectors * k]
-	    + los->orientation * win->orientation * (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_one->perm[k])];
+	    + los->orientation * win->orientation * (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_one[k])];
 	}
       // switch qcc->labels[jlos] and qcc->buffer
     }
@@ -887,41 +548,30 @@ void rauzy_induction_H_plus_quad_cyclic_cover(quad_cyclic_cover *qcc)
 	/* elt at pos (i,j,k) is (qcc->labels)[j].v[i + nb_vectors * k]     */
 	{
 	  (qcc->buffer)[i + qcc->nb_vectors * k] = 
-	    (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_two->perm[k])];
+	    (qcc->labels)[jlos].v[i + qcc->nb_vectors * (qcc->perm_two[k])];
 	}
-      // switch qcc->labels[jlos] and qcc->buffer
     }
+  // switch qcc->labels[jlos] and qcc->buffer
   tmp = qcc->buffer; qcc->buffer = (qcc->labels)[jlos].v; (qcc->labels)[jlos].v = tmp;
 		  
 
   /* modify the cover data                     */
   if (los->orientation == 1 && win->orientation == 1){
-    inverse_permutation(win->lab->sigma, qcc->perm_one);
-    copy_permutation(los->lab->sigma, qcc->perm_two);
-    perm_product(qcc->perm_one, qcc->perm_two, los->lab->sigma);
+    inverse_permutation(win->lab->sigma, qcc->perm_one, qcc->degree);
+    memcpy(qcc->perm_two, los->lab->sigma, qcc->degree * sizeof(size_t));
+    perm_product(qcc->perm_one, qcc->perm_two, los->lab->sigma, qcc->degree);
   }
   if (los->orientation == 1 && win->orientation == -1){
-    copy_permutation(los->lab->sigma, qcc->perm_two); 
-    perm_product(win->lab->sigma, qcc->perm_two, los->lab->sigma);
+    memcpy(qcc->perm_two, los->lab->sigma, qcc->degree * sizeof(size_t)); 
+    perm_product(win->lab->sigma, qcc->perm_two, los->lab->sigma, qcc->degree);
   }
   if (los->orientation == -1 && win->orientation == 1){ 
-    perm_product(los->lab->sigma, win->lab->sigma, los->lab->sigma);
+    perm_product(los->lab->sigma, win->lab->sigma, los->lab->sigma, qcc->degree);
   }
   if (los->orientation == -1 && win->orientation == -1){ 
-    inverse_permutation(win->lab->sigma, qcc->perm_two);
-    perm_product(los->lab->sigma, qcc->perm_two, los->lab->sigma);
+    inverse_permutation(win->lab->sigma, qcc->perm_two, qcc->degree);
+    perm_product(los->lab->sigma, qcc->perm_two, los->lab->sigma, qcc->degree);
   }
-  /* if (los->orientation == 1){ //los_p give name ! */
-  /*   perm_ident_rev(win, qcc->perm_buffer); */
-  /*   inverse_permutation(qcc->perm_buffer, qcc->perm_one); */
-  /*   perm_ident_rev(los, qcc->perm_two); */
-  /*   perm_product(qcc->perm_one, qcc->perm_two, los->lab->sigma); */
-  /* } */
-  /* else { */
-  /*   perm_ident_rev(los->twin, qcc->perm_one); */
-  /*   perm_ident_rev(win, qcc->perm_two); */
-  /*   perm_product(qcc->perm_one, qcc->perm_two, los->lab->sigma); */
-  /* } */
 
   /*change begining of loser interval*/
   los = *los_ptr;

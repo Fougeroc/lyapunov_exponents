@@ -47,14 +47,9 @@ void print_generalized_permutation(generalized_permutation * p);
 
 
 typedef struct{
-  size_t degree;
-  size_t *perm;            /* permution of {0, 1, .. degree - 1} */
-} permutation;
-
-typedef struct{
   long double length;      /* length of the subinterval                                                 */
   int same_interval;       /* a boolean that tells us if the two intervals belong to the same interval  */
-  permutation *sigma;      /* value of the group element on that label (seen as a pi_1 representation)  */
+  size_t *sigma;           /* value of the group element on that label (seen as a pi_1 representation)  */
   double * v;              /* a vector of size degree x nb_vectors */
 } label;
 
@@ -77,24 +72,20 @@ typedef struct{
   interval * intervals;    /* array of intervals                            */
   long double length;      /* length of the top and bot intervals           */
   double * buffer;         /* a buffer of size degree x nb_vectors          */
-  permutation *perm_buffer, *perm_one, *perm_two;
+  size_t *perm_buffer, *perm_one, *perm_two;
 } quad_cyclic_cover;
 
 
-permutation *new_permutation(size_t degree);
-void perm_copy_table(permutation *perm, size_t *tab);
-int check_permutation(permutation *sigma);
-void free_permutation(permutation **sigma);
-void print_permutation(permutation *sigma);
+int check_permutation(size_t *sigma, size_t degree);
+void print_permutation(size_t *sigma, size_t degree);
 
-void perm_name(interval *inter, permutation *perm_buffer);
-void perm_ident_rev(interval *inter, permutation *perm_buffer);
-void perm_product(permutation *sigma, permutation *tau, permutation *perm_buffer);
-void cyclic_permutation(int n, permutation *perm_buffer);
-void inverse_permutation(permutation *sigma, permutation *perm_buffer);
-void copy_permutation(permutation *sigma, permutation *perm_buffer);
+void perm_name(interval *inter, size_t *perm_buffer, size_t degree);
+void perm_ident_rev(interval *inter, size_t *perm_buffer, size_t degree);
+void perm_product(size_t *sigma, size_t *tau, size_t *perm_buffer, size_t degree);
+void cyclic_permutation(int n, size_t *perm_buffer, size_t degree);
+void inverse_permutation(size_t *sigma, size_t *perm_buffer, size_t degree);
 
-quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation * gp, permutation **sigma, size_t degree, size_t nb_vectors);
+quad_cyclic_cover * new_quad_cyclic_cover(generalized_permutation * gp, size_t **sigma, size_t degree, size_t nb_vectors);
 void free_quad_cyclic_cover(quad_cyclic_cover ** qcc);
 int check_quad_cyclic_cover(quad_cyclic_cover * qcc);
 void print_quad_cyclic_cover(quad_cyclic_cover * qcc);

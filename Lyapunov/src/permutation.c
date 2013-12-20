@@ -1,67 +1,24 @@
 #include "lyapunov_exponents.h"
 
-permutation *new_permutation(size_t degree)
+void print_permutation(size_t *sigma, size_t degree)
 {
-	permutation *sigma = (permutation *) malloc(sizeof(permutation));
-	sigma->perm = (size_t *) malloc(degree * sizeof(size_t));
-	sigma->degree = degree;
-	return sigma;
-}
-
-void perm_copy_table(permutation *perm, size_t* tab)
-{
-  memcpy(perm->perm, tab, perm->degree * sizeof(size_t));
-}
-
-void copy_permutation(permutation *perm, permutation *perm_buffer)
-{
-  /*Check the degrees*/
-  if(perm->degree != perm_buffer->degree){
-    fprintf(stderr, "The degree of the permutation and the buffer doesn't match !");
-    return;
-  }
-  
   size_t i;
-  
-  for(i=0; i<perm->degree; ++i)
-    perm_buffer->perm[i] = perm->perm[i];
+  for(i=0; i < degree; ++i) 
+    printf(" %i", sigma[i] + 1);
+  printf("\n");
 }
 
-
-void free_permutation(permutation ** sigma)
-{
-	if((*sigma) != NULL)
-	{
-		if((*sigma)->perm != NULL)
-		{
-			free((*sigma)->perm);
-			(*sigma)->perm = NULL;
-		}
-		free(*sigma);
-		*sigma = NULL;
-	}
-}
-
-void print_permutation(permutation *sigma)
-{
-	size_t i;
-	for(i=0; i < sigma->degree; ++i) printf(" %i", (sigma->perm)[i] + 1);
-	printf("\n");
-}
-
-
-
-int check_permutation(permutation *sigma)
+int check_permutation(size_t *sigma, size_t degree)
 {
   size_t i, j;
   size_t seen;
 
-  for(i=0; i < sigma->degree; ++i)
+  for(i=0; i < degree; ++i)
     {
       seen = 0;
-      for(j=0; j < sigma->degree; ++j)
+      for(j=0; j < degree; ++j)
 	{
-	  if(sigma->perm[j] == i)
+	  if(sigma[j] == i)
 	    {
 	      if(seen) 
 		{
@@ -78,11 +35,11 @@ int check_permutation(permutation *sigma)
 	return 1;
       }
     }
-  for(i=0; i < sigma->degree; ++i)
+  for(i=0; i < degree; ++i)
     {
-      if(sigma->perm[i] >= sigma->degree || sigma->perm[i] < 0)
+      if(sigma[i] >= degree || sigma[i] < 0)
 	{
-	  fprintf(stderr, "%i is not between 0 and %i", i, sigma->degree);
+	  fprintf(stderr, "%i is not between 0 and %i", i, degree);
 	  return 1;
 	}
     }
@@ -90,59 +47,39 @@ int check_permutation(permutation *sigma)
 }
 	
 
-void inverse_permutation(permutation *sigma, permutation *perm_buffer)
+inline void inverse_permutation(size_t *sigma, size_t *perm_buffer, size_t degree)
 { 
-  /*Check the degrees*/
-  if(sigma->degree != perm_buffer->degree){
-    fprintf(stderr, "The degree of the permutation and the buffer doesn't match !");
-    return;
-  }
-
   size_t i;
-
-  for(i=0; i < sigma->degree; ++i)
-    perm_buffer->perm[sigma->perm[i]] = i;
-}
-
-void cyclic_permutation(int n, permutation *perm_buffer)
-{
-  size_t i;
-  size_t degree = perm_buffer->degree;
-
   for(i=0; i < degree; ++i)
-    perm_buffer->perm[i] = (i + n) % degree;
+    perm_buffer[sigma[i]] = i;
 }
 
-void perm_name(interval *inter, permutation *perm_buffer)
+inline void cyclic_permutation(int n, size_t *perm_buffer, size_t degree)
 {
-  size_t degree = inter->lab->sigma->degree;
-  if(degree != perm_buffer->degree){
-    fprintf(stderr, "The degree of the permutation and the buffer doesn't match !");
-    return;
-  }
-  if(inter->orientation == 1)
-    cyclic_permutation(0, perm_buffer);        //return identity
-  else
-    inverse_permutation(inter->lab->sigma, perm_buffer);
-}
-
-void perm_ident_rev(interval *inter, permutation *perm_buffer)
-{
-  if(inter->orientation == 1)
-    copy_permutation(inter->lab->sigma, perm_buffer);
-  else
-    inverse_permutation(inter->lab->sigma, perm_buffer);
-}
-
-void perm_product(permutation *sigma, permutation *tau, permutation *perm_buffer)
-{
-  if(sigma->degree != tau->degree || sigma->degree != perm_buffer->degree)
-    {
-      fprintf(stderr, "Product of two permutations of different sets");
-      return;
-    }
-
   size_t i;
-  for (i=0; i < sigma->degree; ++i)
-    perm_buffer->perm[i] = tau->perm[sigma->perm[i]];
+  for(i=0; i < degree; ++i)
+    perm_buffer[i] = (i + n) % degree;
+}
+
+inline void perm_name(interval *inter, size_t *perm_buffer, size_t degree)
+{ 
+  if(inter->orientation == 1)
+    cyclic_permutation(0, perm_buffer, degree);        //return identity
+  else
+    inverse_permutation(inter->lab->sigma, perm_buffer, degree);
+}
+
+inline void perm_ident_rev(interval *inter, size_t *perm_buffer, size_t degree)
+{
+  if(inter->orientation == 1)
+    memcpy(perm_buffer, inter->lab->sigma, degree * sizeof(size_t));
+  else
+    inverse_permutation(inter->lab->sigma, perm_buffer, degree);
+}
+
+inline void perm_product(size_t *sigma, size_t *tau, size_t *perm_buffer, size_t degree)
+{
+  size_t i;
+  for (i=0; i < degree; ++i)
+    perm_buffer[i] = tau[sigma[i]];
 }
